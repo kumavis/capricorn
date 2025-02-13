@@ -85,8 +85,22 @@ app.all('/cap/:capId', async (req: Request, res: Response) => {
     res.setHeader(key, value);
   }
 
-  // Convert web stream to node stream and pipe
-  Readable.fromWeb(response.body as any).pipe(res);
+  // Convert web stream to node stream and pipe with error handling
+  const stream = Readable.fromWeb(response.body as any);
+  stream.pipe(res);
+  
+  stream.on('error', (error) => {
+    console.error('Stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Error streaming response' });
+    }
+    res.end();
+  });
+
+  // Ensure cleanup on client disconnect
+  req.on('close', () => {
+    stream.destroy();
+  });
 });
 
 app.listen(PORT, () => {
