@@ -2,6 +2,7 @@
   "name": "capricorn",
   "type": "commonjs",
   "scripts": {
+    "start": "ts-node index.ts",
     "dev": "nodemon index.ts"
   },
   "dependencies": {
