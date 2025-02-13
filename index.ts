@@ -2,6 +2,11 @@ import express from 'express';
 import * as crypto from 'crypto';
 import { Request, Response, Application } from 'express';
 import { Readable } from 'stream';
+import 'ses';
+
+lockdown({
+  domainTaming: 'unsafe',
+});
 
 const PORT = process.env.PORT || 3000;
 
@@ -30,7 +35,8 @@ app.post('/create-capability', (req: Request, res: Response) => {
 
   try {
     // Compile the transform function string into a real function
-    const compiledTransform = new Function('req', `return (${transformFunction})(req)`) as (req: Request) => any;
+    const compartment = new Compartment();
+    const compiledTransform = compartment.evaluate(`(${transformFunction})`)
 
     // Store the capability configuration
     capabilities.set(capId, {
