@@ -1,22 +1,14 @@
 {
   "compilerOptions": {
-    "rootDir": "./src",
-    "declaration": true,
+    "target": "ESNext",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "noUncheckedIndexedAccess": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": false,
-    "sourceMap": false,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "strict": true,
-    "target": "es2022"
+    "outDir": "dist"
   },
-  "tsimp": {
-    "compilerOptions": {
-      "skipLibCheck": true,
-      "strict": false
-    }
-  }
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
 }
