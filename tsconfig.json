@@ -1,13 +1,22 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
+    "rootDir": "./src",
+    "declaration": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "noUncheckedIndexedAccess": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": false,
+    "sourceMap": false,
     "strict": true,
-    "outDir": "./dist"
+    "target": "es2022"
   },
-  "include": ["*.ts"],
-  "exclude": ["node_modules"]
-} 
+  "tsimp": {
+    "compilerOptions": {
+      "skipLibCheck": true,
+      "strict": false
+    }
+  }
+}

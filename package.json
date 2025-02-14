@@ -1,18 +1,37 @@
 {
   "name": "capricorn",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "start": "ts-node index.ts",
-    "dev": "nodemon index.ts"
+    "start": "node --import=tsimp/import src/index.ts",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'npm start'",
+    "test": "ava"
   },
   "dependencies": {
     "@types/express": "^4.17.21",
+    "@types/pg": "^8.10.9",
+    "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "pg": "^8.11.3",
     "ses": "^1.11.0",
-    "ts-node": "^10.9.1",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "tsimp": "^2.0.12"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@endo/ses-ava": "^1.1.0",
+    "@types/supertest": "^6.0.2",
+    "ava": "^5.3.1",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3"
+  },
+  "ava": {
+    "files": [
+      "src/**/*.test.ts"
+    ],
+    "extensions": {
+      "ts": "module"
+    },
+    "nodeArguments": [
+      "--import=tsimp"
+    ]
   }
 }

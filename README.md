@@ -41,3 +41,30 @@ Simply make HTTP requests to the generated capability URL. The server will:
 ## Security
 
 Each capability URL contains a unique, random identifier. Only requests with valid capability IDs will be processed.
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+```
+
+2. Set up PostgreSQL database:
+```bash
+# Create database (run this once)
+createdb capricorn
+
+# If you get permissions errors:
+# sudo -u postgres createdb capricorn
+```
+
+3. Set environment variables:
+- Create `.env` file with:
+```
+DATABASE_URL=postgres://localhost:5432/capricorn
+```
+
+4. Start the server:
+```bash
+npm start
+```
