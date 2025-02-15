@@ -2,6 +2,7 @@ import 'ses';
 import 'dotenv/config';
 import { createServer } from './server.js';
 import { DB } from './db/index.js';
+import { CapabilityController } from './controller.js';
 
 
 lockdown({
@@ -15,7 +16,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 const db = new DB(process.env.DATABASE_URL);
-const app = createServer(db);
+const controller = new CapabilityController(db);
+const app = createServer(controller);
 
 // Initialize database before starting server
 await db.initDb();

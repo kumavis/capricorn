@@ -24,9 +24,9 @@ export class RouterV1 extends Model<RouterV1Model> {
 
 // Base type without system-managed fields
 export type RouterV1Options = {
-  pathTemplate: string;
-  ttlSeconds: number;
+  pathTemplate?: string;
   transformFn: string;
+  ttlSeconds?: number;
   secrets?: Record<string, any>;
 }
 

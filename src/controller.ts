@@ -1,11 +1,23 @@
 import type { DB } from './db/index.js';
 import { createRouterV1, type RouterV1, type RouterV1Options } from './db/models/router_v1.js';
 
+
+export type RequestObj = {
+  url: string;
+  method: string;
+  headers: Record<string, string>;
+  body: string;
+}
+
 export class CapabilityController {
   constructor(private db: DB) {}
 
   async getAdminCapability() {
     return await this.db.getAdminCapability();
+  }
+
+  async getCapability(capId: string) {
+    return await this.db.getCapability(capId);
   }
 
   async makeRouter(adminCapId: string, options: RouterV1Options): Promise<string> {
@@ -32,7 +44,7 @@ export class CapabilityController {
     return router;
   }
 
-  async processRouter(routerId: string, request: Request) {
+  async processRouter(routerId: string, request: RequestObj) {
     const router = await this.getRouter(routerId);
     if (!router) {
       throw new Error('Router not found');
