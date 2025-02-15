@@ -1,14 +1,16 @@
 import crypto from 'crypto';
 import { Sequelize } from '@sequelize/core';
 import { createSequelize } from './config.js';
-import { initCapabilityModel, Capability as CapabilityModel } from './models/capability.js';
+import { initCapabilityModel, Capability } from './models/capability.js';
+import { initRouterV1Model, RouterV1 } from './models/router_v1.js';
 
 
 interface DB {
   initDb(): Promise<void>;
-  getCapability(id: string): Promise<CapabilityModel | undefined>;
-  getAdminCapability(): Promise<CapabilityModel | null>;
-  makeCapability(type: string): Promise<void>;
+  getCapability(id: string): Promise<Capability | null>;
+  getRouter(id: string): Promise<RouterV1 | null>;
+  getAdminCapability(): Promise<Capability | null>;
+  makeCapability(type: string): Promise<Capability>;
   close(): Promise<void>;
 }
 
@@ -18,6 +20,7 @@ export class SequelizeDB implements DB {
   constructor(connectionString: string) {
     this.sequelize = createSequelize(connectionString);
     initCapabilityModel(this.sequelize);
+    initRouterV1Model(this.sequelize);
   }
 
   async initDb() {
@@ -31,19 +34,24 @@ export class SequelizeDB implements DB {
   }
 
   async makeCapability(type: string) {
-    await CapabilityModel.create({
+    return await Capability.create({
       id: crypto.randomBytes(16).toString('hex'),
       type,
     });
   }
 
   async getCapability(id: string) {
-    const capability = await CapabilityModel.findByPk(id);
+    const capability = await Capability.findByPk(id);
     return capability?.toJSON();
   }
 
+  async getRouter(id: string) {
+    const router = await RouterV1.findByPk(id);
+    return router;
+  }
+
   async getAdminCapability() {
-    const capability = await CapabilityModel.findOne({ where: { type: 'admin' } });
+    const capability = await Capability.findOne({ where: { type: 'admin' } });
     return capability;
   }
 
@@ -69,7 +77,8 @@ export class SequelizeDB implements DB {
     }
 
     const migrations = [
-      { version: 1, filename:  '01-initial-schema.js' }
+      { version: 1, filename:  '01-initial-schema.js' },
+      { version: 2, filename: '02-add-router-v1.js' },
     ];
 
     for (const { version, filename } of migrations) {
