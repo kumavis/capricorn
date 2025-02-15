@@ -2,7 +2,7 @@ import type { Sequelize } from '@sequelize/core';
 
 export async function up(sequelize: Sequelize) {
   await sequelize.query(`
-    CREATE TABLE router_v1 (
+    CREATE TABLE IF NOT EXISTS router_v1 (
       id VARCHAR(32) PRIMARY KEY REFERENCES capabilities(id),
       path_template TEXT,
       ttl_seconds INTEGER,
