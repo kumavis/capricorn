@@ -1,13 +1,15 @@
 import request from 'supertest';
 import { test } from './test-helper.js';
 import { createServer } from './server.js';
-import { createTestDb, dropTestDb } from './test-db.js';
-import { PostgresDB } from './db.js';
+import { createTestDb, dropTestDb } from './db/test-db.js';
+import { DB } from './db/index.js';
 import { createTestServer } from './test-server.js';
+import { CapabilityController } from './controller.js';
 
 let app: ReturnType<typeof createServer>;
 let testDbInfo: { url: string, schema: string };
-let db: PostgresDB;
+let db: DB;
+let controller: CapabilityController;
 let testServer: { start: () => Promise<string>, stop: () => Promise<void> };
 let testServerUrl: string;
 
@@ -16,10 +18,10 @@ test.before(async () => {
   testDbInfo = await createTestDb();
   
   // Create database instance with unique schema
-  db = new PostgresDB(testDbInfo.url, testDbInfo.schema);
-  
+  db = new DB(testDbInfo.url);
+  controller = new CapabilityController(db);
   // Create server with test database
-  app = createServer(db);
+  app = createServer(controller);
   
   // Initialize database schema
   await db.initDb();
@@ -37,12 +39,20 @@ test.after.always(async () => {
 });
 
 test('should create and use a capability URL', async t => {
-  // Create capability
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability not found');
+    return;
+  }
   const createResponse = await request(app)
-    .post('/create-capability')
+    .post(`/cap/${adminCap.id}/router`)
     .send({
-      destinationUrl: `${testServerUrl}/echo`,
-      transformFunction: 'req => ({ headers: { "X-Test": "hello" } })'
+      secrets: {
+        url: `${testServerUrl}/echo`,
+        test: 'hello',
+      },
+      transformFunction: `(req, { url, test }) => ({ url, headers: { "X-Test": test } })`,
+      ttlSeconds: 123,
     });
 
   t.is(createResponse.status, 200);
@@ -52,10 +62,14 @@ test('should create and use a capability URL', async t => {
   t.is(capId.length, 32);
 
   // Verify capability was stored
-  const capability = await db.getCapability(capId);
+  const capability = await controller.getCapability(capId);
   t.truthy(capability, 'Capability should be stored in database');
-  t.is(capability.destination_url, `${testServerUrl}/echo`);
-
+  const router = await controller.getRouter(capId);
+  if (!router) {
+    t.fail('Router should be stored in database');
+    return;
+  }
+  t.is(router.ttlSeconds, 123);
   // Use capability
   const useResponse = await request(app)
     .get(`/cap/${capId}`);
@@ -77,4 +91,49 @@ test('should return 400 for invalid capability ID', async t => {
 
   t.is(response.status, 400);
   t.deepEqual(response.body, { error: 'Invalid capability ID' });
-}); 
+});
+
+test('should create writer capability using admin capability', async t => {
+  // Get admin capability
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability not found');
+    return;
+  }
+
+  // Create writer capability
+  const createResponse = await request(app)
+    .post(`/cap/${adminCap.id}/write`)
+    .send({
+      label: 'test-writer'
+    });
+
+  t.is(createResponse.status, 200);
+  t.truthy(createResponse.body.capabilityUrl);
+  t.truthy(createResponse.body.writerCapId);
+
+  const writerId = createResponse.body.writerCapId;
+  t.is(writerId.length, 32);
+
+  // Verify writer capability was stored
+  const writerCap = await controller.getCapability(writerId);
+  t.truthy(writerCap, 'Writer capability should exist');
+  t.is(writerCap.type, 'writer');
+  t.is(writerCap.label, 'test-writer');
+  t.is(writerCap.parentCapId, adminCap.id);
+});
+
+test.only('should require label when creating writer', async t => {
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability not found');
+    return;
+  }
+
+  const response = await request(app)
+    .post(`/cap/${adminCap.id}/write`)
+    .send({});
+
+  t.is(response.status, 400);
+  t.deepEqual(response.body, { error: 'Label is required' });
+});
