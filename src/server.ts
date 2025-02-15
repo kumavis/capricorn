@@ -92,7 +92,7 @@ export function createServer(controller: CapabilityController): Application {
       await makeWriter(adminCap, req, res);
       return;
     }
-    res.status(405).json({ error: 'Admin capability can only be used for GET requests' });
+    res.status(405).json({ error: 'Unknown request for admin capability' });
   }
 
   async function handleWriterRequest(writerCap: Capability, req: Request, res: Response) {
@@ -105,7 +105,7 @@ export function createServer(controller: CapabilityController): Application {
       await makeRouter(writerCap, req, res);
       return;
     }
-    res.status(405).json({ error: 'Writer capability can only be used for POST requests' });
+    res.status(405).json({ error: 'Unknown request for writer capability' });
   }
 
   async function handleRouterRequest(router: RouterV1, req: Request, res: Response) {
