@@ -28,29 +28,30 @@ test('makeRouter should create router capability when given admin capability', a
   }
 
   // Create router capability
-  const routerId = await controller.makeRouter(adminCap.id, {
+  const routerCap = await controller.makeRouter(adminCap, 'test', {
     pathTemplate: '/api/:param',
     ttlSeconds: 3600,
     transformFn: 'req => req',
     secrets: { apiKey: 'test-key' }
   });
-  t.truthy(routerId, 'Should return router capability ID');
-  t.is(routerId.length, 32, 'Should be 32 character ID');
+  t.truthy(routerCap, 'Should return router capability');
+  t.is(routerCap.id.length, 32, 'Should be 32 character ID');
 
   // Verify router capability
-  const routerCap = await db.getCapability(routerId);
-  t.truthy(routerCap, 'Router capability should exist');
-  t.is(routerCap.type, 'router');
+  const routerCap2 = await db.getCapability(routerCap.id);
+  t.truthy(routerCap2, 'Router capability should exist');
+  t.is(routerCap2.type, 'router');
 });
 
-test('makeRouter should throw with invalid admin capability', async t => {
+test('makeRouter should throw with invalid writer capability', async t => {
   await t.throwsAsync(
-    () => controller.makeRouter('invalid-id', {
+    // @ts-expect-error testing invalid writer capability
+    () => controller.makeRouter(null, 'test', {
       pathTemplate: '/api/:param',
       ttlSeconds: 3600,
       transformFn: 'req => req',
     }),
-    { message: 'Invalid admin capability' }
+    { message: 'Invalid writer capability' }
   );
 });
 
@@ -68,30 +69,25 @@ test('makeRouter should create router capability with options', async t => {
     transformFn: 'req => req',
   };
 
-  const routerId = await controller.makeRouter(adminCap.id, options);
-  t.truthy(routerId, 'Should return router capability ID');
+  const routerCap = await controller.makeRouter(adminCap, 'test', options);
+  t.truthy(routerCap, 'Should return router capability');
 
   // Verify router capability and config
-  const routerCap = await db.getCapability(routerId);
-  t.truthy(routerCap, 'Router capability should exist');
-  t.is(routerCap.type, 'router');
+  const routerCap2 = await db.getCapability(routerCap.id);
+  t.truthy(routerCap2, 'Router capability should exist');
+  t.is(routerCap2.type, 'router');
 
-  const routerConfig = await controller.getRouter(routerId);
-  if (!routerConfig) {
-    t.fail('Router config should exist');
-    return;
-  }
-  t.is(routerConfig.pathTemplate, options.pathTemplate);
-  t.is(routerConfig.ttlSeconds, options.ttlSeconds);
-  t.is(routerConfig.transformFn, options.transformFn);
-  t.deepEqual(JSON.parse(routerConfig.secrets), options.secrets);
+  t.is(routerCap.pathTemplate, options.pathTemplate);
+  t.is(routerCap.ttlSeconds, options.ttlSeconds);
+  t.is(routerCap.transformFn, options.transformFn);
+  t.deepEqual(JSON.parse(routerCap.secrets), options.secrets);
 });
 
 test('makeRouter should require transformFn', async t => {
   const adminCap = await db.getAdminCapability();
   await t.throwsAsync(
     // @ts-expect-error testing missing required field
-    () => controller.makeRouter(adminCap.id, {}),
+    () => controller.makeRouter(adminCap, 'test', {}),
     { message: 'notNull violation: router_v1.transformFn cannot be null' }
   );
 }); 

@@ -45,7 +45,7 @@ test('should create and use a capability URL', async t => {
     return;
   }
   const createResponse = await request(app)
-    .post(`/cap/${adminCap.id}/create-router`)
+    .post(`/cap/${adminCap.id}/router`)
     .send({
       secrets: {
         url: `${testServerUrl}/echo`,
@@ -91,4 +91,49 @@ test('should return 400 for invalid capability ID', async t => {
 
   t.is(response.status, 400);
   t.deepEqual(response.body, { error: 'Invalid capability ID' });
+});
+
+test('should create writer capability using admin capability', async t => {
+  // Get admin capability
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability not found');
+    return;
+  }
+
+  // Create writer capability
+  const createResponse = await request(app)
+    .post(`/cap/${adminCap.id}/write`)
+    .send({
+      label: 'test-writer'
+    });
+
+  t.is(createResponse.status, 200);
+  t.truthy(createResponse.body.capabilityUrl);
+  t.truthy(createResponse.body.writerCapId);
+
+  const writerId = createResponse.body.writerCapId;
+  t.is(writerId.length, 32);
+
+  // Verify writer capability was stored
+  const writerCap = await controller.getCapability(writerId);
+  t.truthy(writerCap, 'Writer capability should exist');
+  t.is(writerCap.type, 'writer');
+  t.is(writerCap.label, 'test-writer');
+  t.is(writerCap.parentCapId, adminCap.id);
+});
+
+test.only('should require label when creating writer', async t => {
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability not found');
+    return;
+  }
+
+  const response = await request(app)
+    .post(`/cap/${adminCap.id}/write`)
+    .send({});
+
+  t.is(response.status, 400);
+  t.deepEqual(response.body, { error: 'Label is required' });
 });

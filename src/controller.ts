@@ -1,6 +1,7 @@
 import type { DB } from './db/index.js';
 import { createRouterV1, type RouterV1, type RouterV1Options } from './db/models/router_v1.js';
 
+import { Capability } from './db/models/capability.js';
 
 export type RequestObj = {
   url: string;
@@ -20,22 +21,26 @@ export class CapabilityController {
     return await this.db.getCapability(capId);
   }
 
-  async makeRouter(adminCapId: string, options: RouterV1Options): Promise<string> {
-    // Verify admin capability
-    const adminCap = await this.db.getCapability(adminCapId);
-    if (!adminCap || adminCap.type !== 'admin') {
-      throw new Error('Invalid admin capability');
+  async makeWriter(parentCap: Capability, label: string): Promise<Capability> {
+    const writerCap = await this.db.makeCapability({ type: 'writer', label, parentCap });
+    return writerCap;
+  }
+
+  async makeRouter(writerCap: Capability, label: string, options: RouterV1Options): Promise<RouterV1> {
+    // Verify writer capability
+    if (!writerCap || (writerCap.type !== 'writer' && writerCap.type !== 'admin')) {
+      throw new Error('Invalid writer capability');
     }
 
     // Create router capability
-    const routerCap = await this.db.makeCapability('router');
+    const routerCap = await this.db.makeCapability({ type: 'router', label, parentCap: writerCap });
     
     // Create router config
     const router = await createRouterV1(routerCap, options);
-    return router.id;
+    return router;
   }
 
-  async getRouter(routerId: string) {
+  async getRouter(routerId: string): Promise<RouterV1 | null> {
     const routerCap = await this.db.getCapability(routerId);
     if (!routerCap || routerCap.type !== 'router') {
       throw new Error('Invalid router capability');

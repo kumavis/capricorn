@@ -3,7 +3,7 @@ import { Request, Response, Application } from 'express';
 import { Readable } from 'stream';
 import { CapabilityController, RequestObj } from './controller.js';
 import { RouterV1 } from './db/models/router_v1.js';
-
+import { Capability } from './db/models/capability.js';
 
 export function createServer(controller: CapabilityController): Application {
   const app = express();
@@ -25,22 +25,15 @@ export function createServer(controller: CapabilityController): Application {
       return;
     }
 
-    switch (capability.type) {
-      case 'admin': {
-        const { remainingPath } = req.params;
-        if (remainingPath === 'create-router' && req.method === 'POST') {
-          const { pathTemplate, secrets, transformFunction, ttlSeconds } = req.body;
-          const routerId = await controller.makeRouter(capId, {
-            pathTemplate: pathTemplate,
-            transformFn: transformFunction,
-            ttlSeconds: ttlSeconds,
-            secrets: secrets,
-          });
-          const capabilityUrl = `${req.protocol}://${req.get('host')}/cap/${routerId}`;
-          res.json({ routerId, capabilityUrl });
-          return;
-        }
-        res.status(405).json({ error: 'Admin capability can only be used for GET requests' });
+    try {
+      switch (capability.type) {
+        case 'admin': {
+          await handleAdminRequest(capability, req, res);
+        break;
+      }
+      case 'writer': {
+        await handleWriterRequest(capability, req, res);
+        break;
       }
       case 'router': {
         const router = await controller.getRouter(capId);
@@ -48,14 +41,71 @@ export function createServer(controller: CapabilityController): Application {
           res.status(404).json({ error: 'Router not found' });
           return;
         }
-        handleRouterRequest(router, req, res);
+        await handleRouterRequest(router, req, res);
         break;
       }
       default: {
-        res.status(400).json({ error: `Invalid capability type: ${capability.type}` });
-        break;
+          res.status(400).json({ error: `Invalid capability type: ${capability.type}` });
+          break;
+        }
       }
+    } catch (error) {
+      console.error('Error handling capability request:', error);
+      res.status(500).json({ error: 'Internal server error' });
     }
+  }
+
+  async function makeRouter(parentCap: Capability, req: Request, res: Response) {
+    const { label = 'route', pathTemplate, secrets, transformFunction, ttlSeconds } = req.body;
+    if (!label) {
+      res.status(400).json({ error: 'Label is required' });
+      return;
+    }
+    const routerCap = await controller.makeRouter(parentCap, label, {
+      pathTemplate: pathTemplate,
+      transformFn: transformFunction,
+      ttlSeconds: ttlSeconds,
+      secrets: secrets,
+    });
+    const capabilityUrl = makeCapabilityUrl(req, routerCap.id);
+    res.json({ routerId: routerCap.id, capabilityUrl });
+  }
+
+  async function makeWriter(parentCap: Capability, req: Request, res: Response) {
+    const { label } = req.body;
+    if (!label) {
+      res.status(400).json({ error: 'Label is required' });
+      return;
+    }
+    const writerCap = await controller.makeWriter(parentCap, label);
+    const capabilityUrl = makeCapabilityUrl(req, writerCap.id);
+    res.json({ writerCapId: writerCap.id, capabilityUrl });
+  }
+
+  async function handleAdminRequest(adminCap: Capability, req: Request, res: Response) {
+    const { remainingPath } = req.params;
+    if (remainingPath === 'router' && req.method === 'POST') {
+      await makeRouter(adminCap, req, res);
+      return;
+    }
+    if (remainingPath === 'write' && req.method === 'POST') {
+      await makeWriter(adminCap, req, res);
+      return;
+    }
+    res.status(405).json({ error: 'Admin capability can only be used for GET requests' });
+  }
+
+  async function handleWriterRequest(writerCap: Capability, req: Request, res: Response) {
+    const { remainingPath } = req.params;
+    if (remainingPath === 'write' && req.method === 'POST') {
+      await makeWriter(writerCap, req, res);
+      return;
+    }
+    if (remainingPath === 'router' && req.method === 'POST') {
+      await makeRouter(writerCap, req, res);
+      return;
+    }
+    res.status(405).json({ error: 'Writer capability can only be used for POST requests' });
   }
 
   async function handleRouterRequest(router: RouterV1, req: Request, res: Response) {
@@ -91,4 +141,13 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   return app;
+}
+
+function makeCapabilityUrl(req: Request, capId: string) {
+  const host = req.get('host') || 'localhost';
+  const isLocalhost = host.startsWith('localhost');
+  const isIpAddress = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host);
+  const protocol = isLocalhost || isIpAddress ? 'http' : 'https';
+  const url = `${protocol}://${host}/cap/${capId}`;
+  return url;
 }

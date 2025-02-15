@@ -10,6 +10,6 @@ lockdown({
   errorTaming: 'unsafe-debug',
 });
 
-const test = wrapTest(rawTest);
+const test: typeof rawTest = wrapTest(rawTest);
 
 export { test };
