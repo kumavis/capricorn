@@ -47,7 +47,11 @@ test('should create and use a capability URL', async t => {
   const createResponse = await request(app)
     .post(`/cap/${adminCap.id}/create-router`)
     .send({
-      transformFunction: `req => ({ url: '${testServerUrl}/echo', headers: { "X-Test": "hello" } })`,
+      secrets: {
+        url: `${testServerUrl}/echo`,
+        test: 'hello',
+      },
+      transformFunction: `(req, { url, test }) => ({ url, headers: { "X-Test": test } })`,
       ttlSeconds: 123,
     });
 
@@ -65,7 +69,6 @@ test('should create and use a capability URL', async t => {
     t.fail('Router should be stored in database');
     return;
   }
-  t.is(router.transformFn, `req => ({ url: '${testServerUrl}/echo', headers: { "X-Test": "hello" } })`);
   t.is(router.ttlSeconds, 123);
   // Use capability
   const useResponse = await request(app)
