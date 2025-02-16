@@ -24,6 +24,15 @@ export class SequelizeDB implements DB {
   }
 
   async initDb() {
+    // Log database info
+    const [result] = await this.sequelize.query(`
+      SELECT 
+        current_database() as database,
+        current_schema() as schema,
+        current_user as user
+    `);
+    console.log('Database connection info:', result);
+
     await this.runMigrations();
 
     // Create admin capability if it doesn't exist
@@ -72,8 +81,13 @@ export class SequelizeDB implements DB {
     `);
 
     // Get current version
-    const [rows] = await this.sequelize.query('SELECT version FROM db_version');
-    const currentVersion = rows.length ? (rows[0] as any).version : 0;
+    let currentVersion = 0;
+    try {
+      const [rows] = await this.sequelize.query('SELECT version FROM db_version');
+      currentVersion = rows.length ? (rows[0] as any).version : 0;
+    } catch (error) {
+      console.log('No version found, starting from 0');
+    }
 
     const updateVersion = async (version: number) => {
       await this.sequelize.query(`UPDATE db_version SET version = ${version}, updated_at = CURRENT_TIMESTAMP`);
