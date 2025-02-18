@@ -3,6 +3,11 @@ import { createRouterV1, type RouterV1, type RouterV1Options } from './db/models
 
 import { Capability } from './db/models/capability.js';
 
+/**
+ * controller methods assume the capability chain is already validated.
+ * they do not check the chain again. They only check that the parent capability is valid for the action.
+ */
+
 export type RequestObj = {
   url: string;
   method: string;
@@ -83,5 +88,44 @@ export class CapabilityController {
       throw new Error(`Error processing request: ${error}`);
     }
     return processedRequest;
+  }
+
+  async getCapabilityChain(capId: string): Promise<Capability[]> {
+    // Use recursive CTE to get the full chain
+    const rows = await this.db.sequelize.query(`
+      WITH RECURSIVE chain AS (
+        -- Base case: start with the given capability
+        SELECT id, type, label, parent_cap_id, 0 as depth
+        FROM capabilities 
+        WHERE id = :capId
+
+        UNION ALL
+
+        -- Recursive case: join with parent capabilities
+        SELECT c.id, c.type, c.label, c.parent_cap_id, chain.depth + 1
+        FROM capabilities c
+        INNER JOIN chain ON chain.parent_cap_id = c.id
+      )
+      -- Order by depth descending to get root first
+      SELECT id, type, label, parent_cap_id as "parentCapId"
+      FROM chain
+      ORDER BY depth DESC
+    `, {
+      replacements: { capId },
+      type: 'SELECT',
+      // logging: console.log // Log the actual SQL query
+    });
+
+    return rows as Capability[];
+  }
+
+  async validateCapabilityChain(chain: Capability[]): Promise<void> {
+    if (chain.length === 0) {
+      throw new Error('Capability chain must not be empty');
+    }
+    // Validate root is admin
+    if (chain[0].type !== 'admin') {
+      throw new Error('Capability chain must start with admin capability');
+    }
   }
 }

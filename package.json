@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "start": "node --import=tsimp/import src/index.ts",
-    "dev": "nodemon --watch 'src/**/*.ts' --exec 'npm start'",
+    "dev": "nodemon --watch 'src/**/*.ts' --exec 'clear && npm start'",
     "test": "ava",
     "test:dev": "ava --watch",
     "migrate": "node --import=tsimp/import src/db/migrate.ts"

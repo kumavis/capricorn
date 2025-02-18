@@ -41,3 +41,7 @@ export function initCapabilityModel(sequelize: Sequelize) {
     freezeTableName: true
   });
 }
+
+export function labelForCapabilityChain(chain: Capability[]) {
+  return chain.map(cap => `${cap.label}`).join('/');
+}

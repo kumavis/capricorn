@@ -3,7 +3,7 @@ import { Request, Response, Application } from 'express';
 import { Readable } from 'stream';
 import { CapabilityController, RequestObj } from './controller.js';
 import { RouterV1 } from './db/models/router_v1.js';
-import { Capability } from './db/models/capability.js';
+import { Capability, labelForCapabilityChain } from './db/models/capability.js';
 
 export function createServer(controller: CapabilityController): Application {
   const app = express();
@@ -14,19 +14,22 @@ export function createServer(controller: CapabilityController): Application {
   app.all('/cap/:capId/:remainingPath(*)', handleCapabilityRequest);
 
   async function handleCapabilityRequest (req: Request, res: Response) {
-    const capId = req.params.capId;
-    if (!capId || typeof capId !== 'string' || capId.length !== 32) {
-      res.status(400).json({ error: 'Invalid capability ID' });
-      return;
-    }
-    const capability = await controller.getCapability(capId);
-    if (!capability) {
-      res.status(404).json({ error: 'Capability not found' });
-      return;
-    }
-
-    console.log(`REQ: ${req.method} ${capability.type} ${capId} ${capability.label}`);
     try {
+      const capId = req.params.capId;
+      if (!capId || typeof capId !== 'string' || capId.length !== 32) {
+        res.status(400).json({ error: 'Invalid capability ID' });
+        return;
+      }
+      const capabilityChain = await controller.getCapabilityChain(capId);
+      if (capabilityChain.length === 0) {
+        res.status(404).json({ error: 'Capability not found' });
+        return;
+      }
+      controller.validateCapabilityChain(capabilityChain);
+      const capability = capabilityChain[capabilityChain.length - 1];
+  
+      console.log(`REQ: ${req.method} ${capability.type} ${labelForCapabilityChain(capabilityChain)} ${capId}`);
+
       switch (capability.type) {
         case 'admin': {
           await handleAdminRequest(capability, req, res);
