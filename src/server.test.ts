@@ -51,7 +51,7 @@ test('should create and use a capability URL', async t => {
         url: `${testServerUrl}/echo`,
         test: 'hello',
       },
-      transformFunction: `(req, { url, test }) => ({ url, headers: { "X-Test": test } })`,
+      transformFn: `(req, { url, test }) => ({ url, headers: { "X-Test": test } })`,
       ttlSeconds: 123,
     });
 
@@ -123,7 +123,7 @@ test('should create writer capability using admin capability', async t => {
   t.is(writerCap.parentCapId, adminCap.id);
 });
 
-test.only('should require label when creating writer', async t => {
+test('should require label when creating writer', async t => {
   const adminCap = await controller.getAdminCapability();
   if (!adminCap) {
     t.fail('Admin capability not found');
