@@ -10,8 +10,15 @@ export type RequestObj = {
   body: string;
 }
 
+const compileTransformFn = (transformFn: string) => {
+  const compartment = new Compartment({ atob, btoa });
+  return compartment.evaluate(`(${transformFn})`);
+}
+
 export class CapabilityController {
-  constructor(private db: DB) {}
+  constructor(private db: DB) {
+    this.db = db;
+  }
 
   async getAdminCapability() {
     return await this.db.getAdminCapability();
@@ -32,6 +39,13 @@ export class CapabilityController {
       throw new Error('Invalid writer capability');
     }
 
+    try {
+      compileTransformFn(options.transformFn);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Invalid transform function: ${errorMessage}`);
+    }
+
     // Create router capability
     const routerCap = await this.db.makeCapability({ type: 'router', label, parentCap: writerCap });
     
@@ -46,6 +60,9 @@ export class CapabilityController {
       throw new Error('Invalid router capability');
     }
     const router = await this.db.getRouter(routerId);
+    if (!router) {
+      throw new Error('Router not found');
+    }
     return router;
   }
 
@@ -54,8 +71,8 @@ export class CapabilityController {
     if (!router) {
       throw new Error('Router not found');
     }
-    const compartment = new Compartment();
-    const transformFn = compartment.evaluate(`(${router.transformFn})`);
+
+    const transformFn = compileTransformFn(router.transformFn);
     const secrets = JSON.parse(router.secrets);
     const pathTemplate = router.pathTemplate;
 
@@ -63,7 +80,7 @@ export class CapabilityController {
     try {
       processedRequest = await transformFn(request, secrets);
     } catch (error) {
-      throw new Error('Error processing request');
+      throw new Error(`Error processing request: ${error}`);
     }
     return processedRequest;
   }

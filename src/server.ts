@@ -25,6 +25,7 @@ export function createServer(controller: CapabilityController): Application {
       return;
     }
 
+    console.log(`REQ: ${req.method} ${capability.type} ${capId} ${capability.label}`);
     try {
       switch (capability.type) {
         case 'admin': {
@@ -56,16 +57,24 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   async function makeRouter(parentCap: Capability, req: Request, res: Response) {
-    const { label = 'route', pathTemplate, secrets, transformFunction, ttlSeconds } = req.body;
+    const { label = 'route', pathTemplate, secrets, transformFn, ttlSeconds, ...otherParams } = req.body;
     if (!label) {
       res.status(400).json({ error: 'Label is required' });
       return;
     }
+    if (!transformFn) {
+      res.status(400).json({ error: 'Transform function is required' });
+      return;
+    }
+    if (Object.keys(otherParams).length > 0) {
+      res.status(400).json({ error: `Unknown parameters: ${Object.keys(otherParams).join(', ')}` });
+      return;
+    }
     const routerCap = await controller.makeRouter(parentCap, label, {
-      pathTemplate: pathTemplate,
-      transformFn: transformFunction,
-      ttlSeconds: ttlSeconds,
-      secrets: secrets,
+      pathTemplate,
+      transformFn,
+      ttlSeconds,
+      secrets,
     });
     const capabilityUrl = makeCapabilityUrl(req, routerCap.id);
     res.json({ routerId: routerCap.id, capabilityUrl });

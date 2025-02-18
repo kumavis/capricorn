@@ -15,7 +15,7 @@ export function createSequelize(connectionString: string) {
   return new Sequelize({
     url: url.toString(),
     dialect: 'postgres',
-    logging: (msg) => console.log('Sequelize:', msg),
+    // logging: (msg) => console.log('Sequelize:', msg),
     schema: 'public'
   });
 }
