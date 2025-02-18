@@ -84,7 +84,11 @@ export class SequelizeDB implements DB {
     let currentVersion = 0;
     try {
       const [rows] = await this.sequelize.query('SELECT version FROM db_version');
-      currentVersion = rows.length ? (rows[0] as any).version : 0;
+      if (rows.length) {
+        currentVersion = (rows[0] as any).version;
+      } else {
+        await this.sequelize.query('INSERT INTO db_version (version) VALUES (0)');
+      }
     } catch (error) {
       console.log('No version found, starting from 0');
     }
