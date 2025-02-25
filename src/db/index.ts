@@ -43,18 +43,21 @@ export class SequelizeDB implements DB {
   }
 
   async makeCapability(options: CapabilityOptions) {
-    const { type, label, parentCap } = options;
-    return await Capability.create({
+    const { type, label, parentCap, ttl } = options;
+    const capability = await Capability.create({
       id: crypto.randomBytes(16).toString('hex'),
       type,
       label,
       parentCapId: parentCap?.id,
+      ttl,
+      createdAt: new Date()
     });
+    return capability;
   }
 
   async getCapability(id: string) {
     const capability = await Capability.findByPk(id);
-    return capability?.toJSON();
+    return capability;
   }
 
   async getRouter(id: string) {
@@ -65,6 +68,14 @@ export class SequelizeDB implements DB {
   async getAdminCapability() {
     const capability = await Capability.findOne({ where: { type: 'admin' } });
     return capability;
+  }
+
+  async getCurrentTime() {
+    const result = await this.sequelize.query('SELECT CURRENT_TIMESTAMP', { type: 'SELECT' });
+    const dateStr = (result as any)[0].current_timestamp;
+    const cleanedDateStr = dateStr.replace(' ', 'T').split('.')[0];
+    const currentTime = new Date(cleanedDateStr);
+    return currentTime;
   }
 
   async close() {
@@ -98,9 +109,11 @@ export class SequelizeDB implements DB {
     }
 
     const migrations = [
-      { version: 1, filename:  '01-initial-schema.js' },
+      { version: 1, filename: '01-initial-schema.js' },
       { version: 2, filename: '02-add-router-v1.js' },
       { version: 3, filename: '03-add-capability-fields.js' },
+      { version: 4, filename: '04-add-ttl-and-created-at-to-capabilities.js' },
+      { version: 5, filename: '05-remove-ttl-from-router-v1.js' }
     ];
 
     for (const { version, filename } of migrations) {

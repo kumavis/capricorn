@@ -5,7 +5,6 @@ import { Capability } from './capability.js';
 type RouterV1Model = {
   id: string;
   pathTemplate: string | null;
-  ttlSeconds: number | null;
   transformFn: string;
   secrets: string;
   requestCount: number;
@@ -15,7 +14,6 @@ type RouterV1Model = {
 export class RouterV1 extends Model<RouterV1Model> {
   declare id: string;  // Same as router capability id
   declare pathTemplate: string | null;
-  declare ttlSeconds: number | null;
   declare transformFn: string;
   declare secrets: string;  // JSON blob
   declare requestCount: number;
@@ -26,7 +24,6 @@ export class RouterV1 extends Model<RouterV1Model> {
 export type RouterV1Options = {
   pathTemplate?: string;
   transformFn: string;
-  ttlSeconds?: number;
   secrets?: Record<string, any>;
 }
 
@@ -48,11 +45,6 @@ export function initRouterV1Model(sequelize: Sequelize) {
       type: DataTypes.TEXT,
       allowNull: true,
       columnName: 'path_template'
-    },
-    ttlSeconds: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      columnName: 'ttl_seconds'
     },
     transformFn: {
       type: DataTypes.TEXT,

@@ -3,7 +3,7 @@ import { Request, Response, Application } from 'express';
 import { Readable } from 'stream';
 import { CapabilityController, RequestObj } from './controller.js';
 import { RouterV1 } from './db/models/router_v1.js';
-import { Capability, labelForCapabilityChain } from './db/models/capability.js';
+import { Capability, CapabilityOptions, labelForCapabilityChain } from './db/models/capability.js';
 
 export function createServer(controller: CapabilityController): Application {
   const app = express();
@@ -25,7 +25,13 @@ export function createServer(controller: CapabilityController): Application {
         res.status(404).json({ error: 'Capability not found' });
         return;
       }
-      controller.validateCapabilityChain(capabilityChain);
+      try {
+        controller.validateCapabilityChain(capabilityChain);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        res.status(400).json({ error: `Invalid capability chain: ${errorMessage}` });
+        return;
+      }
       const capability = capabilityChain[capabilityChain.length - 1];
   
       console.log(`REQ: ${req.method} ${capability.type} ${labelForCapabilityChain(capabilityChain)} ${capId}`);
@@ -60,7 +66,7 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   async function makeRouter(parentCap: Capability, req: Request, res: Response) {
-    const { label = 'route', pathTemplate, secrets, transformFn, ttlSeconds, ...otherParams } = req.body;
+    const { label = 'route', pathTemplate, secrets, transformFn, ttl, ...otherParams } = req.body;
     if (!label) {
       res.status(400).json({ error: 'Label is required' });
       return;
@@ -73,10 +79,15 @@ export function createServer(controller: CapabilityController): Application {
       res.status(400).json({ error: `Unknown parameters: ${Object.keys(otherParams).join(', ')}` });
       return;
     }
-    const routerCap = await controller.makeRouter(parentCap, label, {
+    const capOptions: CapabilityOptions = {
+      type: 'router',
+      label,
+      parentCap,
+      ttl,
+    }
+    const routerCap = await controller.makeRouter(capOptions, {
       pathTemplate,
       transformFn,
-      ttlSeconds,
       secrets,
     });
     const capabilityUrl = makeCapabilityUrl(req, routerCap.id);

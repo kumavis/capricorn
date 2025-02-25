@@ -1,7 +1,7 @@
 import type { DB } from './db/index.js';
 import { createRouterV1, type RouterV1, type RouterV1Options } from './db/models/router_v1.js';
 
-import { Capability } from './db/models/capability.js';
+import { Capability, CapabilityOptions } from './db/models/capability.js';
 
 /**
  * controller methods assume the capability chain is already validated.
@@ -38,8 +38,9 @@ export class CapabilityController {
     return writerCap;
   }
 
-  async makeRouter(writerCap: Capability, label: string, options: RouterV1Options): Promise<RouterV1> {
+  async makeRouter(capOptions: CapabilityOptions, options: RouterV1Options): Promise<RouterV1> {
     // Verify writer capability
+    const writerCap = capOptions.parentCap;
     if (!writerCap || (writerCap.type !== 'writer' && writerCap.type !== 'admin')) {
       throw new Error('Invalid writer capability');
     }
@@ -52,7 +53,7 @@ export class CapabilityController {
     }
 
     // Create router capability
-    const routerCap = await this.db.makeCapability({ type: 'router', label, parentCap: writerCap });
+    const routerCap = await this.db.makeCapability(capOptions);
     
     // Create router config
     const router = await createRouterV1(routerCap, options);
@@ -95,28 +96,43 @@ export class CapabilityController {
     const rows = await this.db.sequelize.query(`
       WITH RECURSIVE chain AS (
         -- Base case: start with the given capability
-        SELECT id, type, label, parent_cap_id, 0 as depth
+        SELECT *, 0 as depth
         FROM capabilities 
         WHERE id = :capId
 
         UNION ALL
 
         -- Recursive case: join with parent capabilities
-        SELECT c.id, c.type, c.label, c.parent_cap_id, chain.depth + 1
+        SELECT c.*, chain.depth + 1
         FROM capabilities c
         INNER JOIN chain ON chain.parent_cap_id = c.id
       )
       -- Order by depth descending to get root first
-      SELECT id, type, label, parent_cap_id as "parentCapId"
+      SELECT *
       FROM chain
       ORDER BY depth DESC
     `, {
       replacements: { capId },
+      model: Capability,
+      mapToModel: true,
       type: 'SELECT',
       // logging: console.log // Log the actual SQL query
     });
 
+
     return rows as Capability[];
+  }
+
+  validateCapability(cap: Capability, now: Date) {
+    // validate ttl if it exists
+    if (cap.ttl !== null) {
+      const createdAt = cap.createdAt;
+      const expirationTime = new Date(createdAt.getTime() + cap.ttl * 1000);
+      const timeDiff = expirationTime.getTime() - now.getTime();
+      if (timeDiff <= 0) {
+        throw new Error(`Capability ${cap.id} has expired`);
+      }
+    }
   }
 
   async validateCapabilityChain(chain: Capability[]): Promise<void> {
@@ -126,6 +142,11 @@ export class CapabilityController {
     // Validate root is admin
     if (chain[0].type !== 'admin') {
       throw new Error('Capability chain must start with admin capability');
+    }
+
+    const now = await this.db.getCurrentTime();
+    for (const cap of chain) {
+      this.validateCapability(cap, now);
     }
   }
 }

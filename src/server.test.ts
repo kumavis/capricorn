@@ -52,7 +52,7 @@ test('should create and use a capability URL', async t => {
         test: 'hello',
       },
       transformFn: `(req, { url, test }) => ({ url, headers: { "X-Test": test } })`,
-      ttlSeconds: 123,
+      ttl: 123,
     });
 
   t.is(createResponse.status, 200);
@@ -63,13 +63,17 @@ test('should create and use a capability URL', async t => {
 
   // Verify capability was stored
   const capability = await controller.getCapability(capId);
-  t.truthy(capability, 'Capability should be stored in database');
+  if (!capability) {
+    t.fail('Capability should be stored in database');
+    return;
+  }
+  t.is(capability.ttl, 123);
+  
   const router = await controller.getRouter(capId);
   if (!router) {
     t.fail('Router should be stored in database');
     return;
   }
-  t.is(router.ttlSeconds, 123);
   // Use capability
   const useResponse = await request(app)
     .get(`/cap/${capId}`);
@@ -117,7 +121,10 @@ test('should create writer capability using admin capability', async t => {
 
   // Verify writer capability was stored
   const writerCap = await controller.getCapability(writerId);
-  t.truthy(writerCap, 'Writer capability should exist');
+  if (!writerCap) {
+    t.fail('Writer capability should exist');
+    return;
+  }
   t.is(writerCap.type, 'writer');
   t.is(writerCap.label, 'test-writer');
   t.is(writerCap.parentCapId, adminCap.id);

@@ -6,12 +6,15 @@ export class Capability extends Model {
   declare type: string;
   declare label: string;
   declare parentCapId: string | null;
+  declare ttl: number | null;  // Time-to-live in seconds
+  declare createdAt: Date;     // Creation timestamp
 }
 
 export type CapabilityOptions = {
   type: string;
   label: string;
   parentCap: Capability | null;
+  ttl?: number;  // Optional TTL
 }
 
 export function initCapabilityModel(sequelize: Sequelize) {
@@ -32,6 +35,16 @@ export function initCapabilityModel(sequelize: Sequelize) {
       type: DataTypes.STRING,
       allowNull: true,
       columnName: 'parent_cap_id'
+    },
+    ttl: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    createdAt: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+      columnName: 'created_at'
     }
   }, {
     sequelize,
