@@ -10,8 +10,7 @@ export function createServer(controller: CapabilityController): Application {
   app.use(express.json());
 
   // Handle requests to capability URLs
-  app.all('/cap/:capId', handleCapabilityRequest);
-  app.all('/cap/:capId/:remainingPath(*)', handleCapabilityRequest);
+  app.all('/cap/:capId{/*remainingPath}', handleCapabilityRequest);
 
   async function handleCapabilityRequest (req: Request, res: Response) {
     try {
@@ -33,9 +32,6 @@ export function createServer(controller: CapabilityController): Application {
         return;
       }
       const capability = capabilityChain[capabilityChain.length - 1];
-  
-      console.log(`REQ: ${req.method} ${capability.type} ${labelForCapabilityChain(capabilityChain)} ${capId}`);
-
       switch (capability.type) {
         case 'admin': {
           await handleAdminRequest(capability, req, res);
@@ -106,7 +102,7 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   async function handleAdminRequest(adminCap: Capability, req: Request, res: Response) {
-    const { remainingPath } = req.params;
+    const remainingPath = getRemainingPath(req.params);
     if (remainingPath === 'router' && req.method === 'POST') {
       await makeRouter(adminCap, req, res);
       return;
@@ -119,7 +115,7 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   async function handleWriterRequest(writerCap: Capability, req: Request, res: Response) {
-    const { remainingPath } = req.params;
+    const remainingPath = getRemainingPath(req.params);
     if (remainingPath === 'write' && req.method === 'POST') {
       await makeWriter(writerCap, req, res);
       return;
@@ -173,4 +169,9 @@ function makeCapabilityUrl(req: Request, capId: string) {
   const protocol = isLocalhost || isIpAddress ? 'http' : 'https';
   const url = `${protocol}://${host}/cap/${capId}`;
   return url;
+}
+
+function getRemainingPath(params: Record<string, unknown>) {
+  const remainingPath = params.remainingPath as string[];
+  return remainingPath.join('/');
 }
