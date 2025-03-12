@@ -24,6 +24,10 @@ export class CapabilityController {
   constructor(private db: DB) {
     this.db = db;
   }
+  
+  async getAllCapabilities(type?: string): Promise<Capability[]> {
+    return await this.db.getAllCapabilities(type);
+  }
 
   async getAdminCapability() {
     return await this.db.getAdminCapability();
@@ -133,6 +137,10 @@ export class CapabilityController {
         throw new Error(`Capability ${cap.id} has expired`);
       }
     }
+  }
+  
+  async getCurrentTime(): Promise<Date> {
+    return await this.db.getCurrentTime();
   }
 
   async validateCapabilityChain(chain: Capability[]): Promise<void> {

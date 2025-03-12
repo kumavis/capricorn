@@ -15,6 +15,7 @@
     "@types/pg": "^8.10.9",
     "dotenv": "^16.3.1",
     "express": "^5.0.1",
+    "express-handlebars": "^8.0.1",
     "pg": "^8.11.3",
     "ses": "^1.11.0",
     "tsimp": "^2.0.12",

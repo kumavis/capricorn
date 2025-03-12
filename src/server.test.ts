@@ -56,9 +56,10 @@ test('should create and use a capability URL', async t => {
     });
 
   t.is(createResponse.status, 200);
+  t.truthy(createResponse.body.routerId);
   t.truthy(createResponse.body.capabilityUrl);
 
-  const capId = createResponse.body.capabilityUrl.split('/cap/')[1];
+  const capId = createResponse.body.routerId;
   t.is(capId.length, 32);
 
   // Verify capability was stored

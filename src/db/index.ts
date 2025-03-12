@@ -8,6 +8,7 @@ import { initRouterV1Model, RouterV1 } from './models/router_v1.js';
 interface DB {
   initDb(): Promise<void>;
   getCapability(id: string): Promise<Capability | null>;
+  getAllCapabilities(type?: string): Promise<Capability[]>;
   getRouter(id: string): Promise<RouterV1 | null>;
   getAdminCapability(): Promise<Capability | null>;
   makeCapability(options: CapabilityOptions): Promise<Capability>;
@@ -58,6 +59,15 @@ export class SequelizeDB implements DB {
   async getCapability(id: string) {
     const capability = await Capability.findByPk(id);
     return capability;
+  }
+  
+  async getAllCapabilities(type?: string) {
+    const where = type ? { type } : {};
+    const capabilities = await Capability.findAll({ 
+      where,
+      order: [['createdAt', 'DESC']]
+    });
+    return capabilities;
   }
 
   async getRouter(id: string) {

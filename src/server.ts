@@ -1,12 +1,19 @@
+import path from 'path';
 import express from 'express';
 import { Request, Response, Application } from 'express';
 import { Readable } from 'stream';
+import { engine } from 'express-handlebars';
 import { CapabilityController, RequestObj } from './controller.js';
 import { RouterV1 } from './db/models/router_v1.js';
 import { Capability, CapabilityOptions, labelForCapabilityChain } from './db/models/capability.js';
 
+const __dirname = import.meta.dirname;
+
 export function createServer(controller: CapabilityController): Application {
   const app = express();
+  app.engine('handlebars', engine());
+  app.set('view engine', 'handlebars');
+  app.set('views', path.join(__dirname, 'views'));
   app.use(express.json());
 
   // Handle requests to capability URLs
@@ -101,15 +108,83 @@ export function createServer(controller: CapabilityController): Application {
     res.json({ writerCapId: writerCap.id, capabilityUrl });
   }
 
+  async function renderAdmin(req: Request, res: Response) {
+    const capabilities = await controller.getAllCapabilities();
+
+    // Get current time from database to ensure consistency
+    const now = await controller.getCurrentTime();
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    
+    // Prepare capabilities with URL and TTL information
+    const capabilitiesWithUrl = capabilities.map(cap => {
+      const capData = cap.get({ plain: true });
+      let ttlStatus = null;
+      
+      if (capData.ttl !== null) {
+        const createdAt = new Date(capData.createdAt);
+        const expirationTime = new Date(createdAt.getTime() + capData.ttl * 1000);
+        const timeDiff = expirationTime.getTime() - now.getTime();
+        
+        if (timeDiff <= 0) {
+          ttlStatus = {
+            expired: true,
+            expirationTime,
+            message: 'Expired'
+          };
+        } else {
+          // Calculate time units for RelativeTimeFormat
+          const seconds = Math.floor(timeDiff / 1000);
+          const minutes = Math.floor(seconds / 60);
+          const hours = Math.floor(minutes / 60);
+          const days = Math.floor(hours / 24);
+          
+          let timeRemaining;
+          if (days > 0) {
+            timeRemaining = rtf.format(days, 'day');
+          } else if (hours > 0) {
+            timeRemaining = rtf.format(hours, 'hour');
+          } else if (minutes > 0) {
+            timeRemaining = rtf.format(minutes, 'minute');
+          } else {
+            timeRemaining = rtf.format(seconds, 'second');
+          }
+          
+          ttlStatus = {
+            expired: false,
+            expirationTime,
+            message: `Expires ${timeRemaining}`,
+            timeRemaining
+          };
+        }
+      }
+      
+      return {
+        ...capData,
+        url: makeCapabilityUrl(req, cap.id),
+        ttlStatus
+      };
+    });
+    
+    res.render('admin', { capabilities: capabilitiesWithUrl });
+  }
+
   async function handleAdminRequest(adminCap: Capability, req: Request, res: Response) {
     const remainingPath = getRemainingPath(req.params);
-    if (remainingPath === 'router' && req.method === 'POST') {
-      await makeRouter(adminCap, req, res);
-      return;
+    if (req.method === 'GET') {
+      if (req.accepts('html')) {
+        await renderAdmin(req, res);
+        return;
+      }
     }
-    if (remainingPath === 'write' && req.method === 'POST') {
-      await makeWriter(adminCap, req, res);
-      return;
+    if (req.method === 'POST') {
+      if (remainingPath === 'router') {
+        await makeRouter(adminCap, req, res);
+        return;
+      }
+      if (remainingPath === 'write') {
+        await makeWriter(adminCap, req, res);
+        return;
+      }
     }
     res.status(405).json({ error: 'Unknown request for admin capability' });
   }
@@ -172,6 +247,6 @@ function makeCapabilityUrl(req: Request, capId: string) {
 }
 
 function getRemainingPath(params: Record<string, unknown>) {
-  const remainingPath = params.remainingPath as string[];
-  return remainingPath.join('/');
+  const remainingPath = params.remainingPath as string[] | undefined;
+  return remainingPath ? remainingPath.join('/') : '';
 }
