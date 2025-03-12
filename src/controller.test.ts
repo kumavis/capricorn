@@ -138,7 +138,10 @@ test('getCapabilityChain should return capabilities from root to leaf', async t 
   }
 
   // Create writer
-  const writerCap = await controller.makeWriter(adminCap, 'test-writer');
+  const writerCap = await controller.makeWriter({
+    label: 'test-writer',
+    parentCap: adminCap,
+  });
   
   // Create router
   const capOptions: CapabilityOptions = {
@@ -187,7 +190,10 @@ test('validateCapabilityChain should pass for valid chain', async t => {
     return;
   }
 
-  const writerCap = await controller.makeWriter(adminCap, 'test-writer');
+  const writerCap = await controller.makeWriter({
+    label: 'test-writer',
+    parentCap: adminCap,
+  });
   const chain = [adminCap, writerCap];
   // Should not throw
   await t.notThrowsAsync(() => controller.validateCapabilityChain(chain));
@@ -214,7 +220,10 @@ test('validateCapabilityChain should pass for non-expired capabilities', async t
     return;
   }
 
-  const writerCap = await controller.makeWriter(adminCap, 'test-writer');
+  const writerCap = await controller.makeWriter({
+    label: 'test-writer',
+    parentCap: adminCap,
+  });
   const capOptions: CapabilityOptions = {
     type: 'router',
     label: 'test-router',
@@ -237,7 +246,10 @@ test('validateCapabilityChain should fail for expired capabilities', async t => 
     return;
   }
 
-  const writerCap = await controller.makeWriter(adminCap, 'test-writer');
+  const writerCap = await controller.makeWriter({
+    label: 'test-writer',
+    parentCap: adminCap,
+  });
   const capOptions: CapabilityOptions = {
     type: 'router',
     label: 'test-router',

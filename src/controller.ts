@@ -3,6 +3,8 @@ import { createRouterV1, type RouterV1, type RouterV1Options } from './db/models
 
 import { Capability, CapabilityOptions } from './db/models/capability.js';
 
+export type CapabilityOptionsNoType = Omit<CapabilityOptions, 'type'>;
+
 /**
  * controller methods assume the capability chain is already validated.
  * they do not check the chain again. They only check that the parent capability is valid for the action.
@@ -37,12 +39,12 @@ export class CapabilityController {
     return await this.db.getCapability(capId);
   }
 
-  async makeWriter(parentCap: Capability, label: string): Promise<Capability> {
-    const writerCap = await this.db.makeCapability({ type: 'writer', label, parentCap });
+  async makeWriter(capOptions: CapabilityOptionsNoType): Promise<Capability> {
+    const writerCap = await this.db.makeCapability({ ...capOptions, type: 'writer' });
     return writerCap;
   }
 
-  async makeRouter(capOptions: CapabilityOptions, options: RouterV1Options): Promise<RouterV1> {
+  async makeRouter(capOptions: CapabilityOptionsNoType, options: RouterV1Options): Promise<RouterV1> {
     // Verify writer capability
     const writerCap = capOptions.parentCap;
     if (!writerCap || (writerCap.type !== 'writer' && writerCap.type !== 'admin')) {
@@ -57,7 +59,7 @@ export class CapabilityController {
     }
 
     // Create router capability
-    const routerCap = await this.db.makeCapability(capOptions);
+    const routerCap = await this.db.makeCapability({ ...capOptions, type: 'router' });
     
     // Create router config
     const router = await createRouterV1(routerCap, options);

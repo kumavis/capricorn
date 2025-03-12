@@ -98,12 +98,21 @@ export function createServer(controller: CapabilityController): Application {
   }
 
   async function makeWriter(parentCap: Capability, req: Request, res: Response) {
-    const { label } = req.body;
+    const { label, ttl, ...otherParams } = req.body;
     if (!label) {
       res.status(400).json({ error: 'Label is required' });
       return;
     }
-    const writerCap = await controller.makeWriter(parentCap, label);
+    if (Object.keys(otherParams).length > 0) {
+      res.status(400).json({ error: `Unknown parameters: ${Object.keys(otherParams).join(', ')}` });
+      return;
+    }
+
+    const writerCap = await controller.makeWriter({
+      label,
+      parentCap,
+      ttl
+    });
     const capabilityUrl = makeCapabilityUrl(req, writerCap.id);
     res.json({ writerCapId: writerCap.id, capabilityUrl });
   }
