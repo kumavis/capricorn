@@ -4,7 +4,6 @@ import { createServer } from './server.js';
 import { DB } from './db/index.js';
 import { CapabilityController } from './controller.js';
 
-
 lockdown({
   domainTaming: 'unsafe',
 });
@@ -27,6 +26,5 @@ app.listen(PORT, () => {
 });
 
 // Log admin capability ID
-// const capability = await controller.getAdminCapability();
-const capability = await db.getAdminCapability();
+const capability = await controller.getAdminCapability();
 console.log(`Admin capability: ${capability?.id}`);
