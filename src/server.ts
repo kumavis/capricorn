@@ -32,7 +32,7 @@ export function createServer(controller: CapabilityController): Application {
         return;
       }
       try {
-        controller.validateCapabilityChain(capabilityChain);
+        await controller.validateCapabilityChain(capabilityChain);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         res.status(400).json({ error: `Invalid capability chain: ${errorMessage}` });
