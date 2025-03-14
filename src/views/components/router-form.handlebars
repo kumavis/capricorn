@@ -1,0 +1,164 @@
+<form id="router-form" class="router-form">
+  <div class="form-group">
+    <label for="label">Label</label>
+    <input type="text" id="label" name="label" required placeholder="Route name">
+  </div>
+  
+  <div class="form-group">
+    <label for="pathTemplate">Path Template (optional)</label>
+    <input type="text" id="pathTemplate" name="pathTemplate" placeholder="/api/v1/{param}">
+  </div>
+  
+  <div class="form-group">
+    <label for="transformFn">Transform Function</label>
+    <textarea id="transformFn" name="transformFn" required rows="10" placeholder="async function transformRequest(request, secrets) {
+  // Transform the request
+  return new Request('https://example.com/api', {
+    method: request.method,
+    headers: request.headers,
+    body: request.body
+  });
+}"></textarea>
+  </div>
+  
+  <div class="form-group">
+    <label for="secrets">Secrets (JSON)</label>
+    <textarea id="secrets" name="secrets" rows="5" placeholder='{ "apiKey": "your-api-key" }'>{}</textarea>
+  </div>
+  
+  <div class="form-group">
+    <label for="ttl">Time-to-Live (seconds, optional)</label>
+    <input type="number" id="ttl" name="ttl" placeholder="86400 (1 day)">
+  </div>
+  
+  <div class="form-actions">
+    <button type="submit" class="button">Create Router Capability</button>
+  </div>
+</form>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('router-form');
+    const endpoint = location.href + '/router';
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(form);
+      const payload = {
+        label: formData.get('label'),
+        pathTemplate: formData.get('pathTemplate') || undefined,
+        transformFn: formData.get('transformFn'),
+        ttl: formData.get('ttl') ? parseInt(formData.get('ttl'), 10) : undefined
+      };
+      
+      // Parse secrets as JSON
+      try {
+        const secretsText = formData.get('secrets');
+        payload.secrets = secretsText ? JSON.parse(secretsText) : {};
+      } catch (error) {
+        alert('Invalid JSON in secrets field');
+        return;
+      }
+      
+      try {
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to create router capability');
+        }
+        
+        const data = await response.json();
+        
+        // Show success message with the capability URL
+        const resultElement = document.createElement('div');
+        resultElement.className = 'result success';
+        resultElement.innerHTML = `
+          <h3>Router Capability Created!</h3>
+          <p><strong>Router ID:</strong> ${data.routerId}</p>
+          <p><a href="${data.capabilityUrl}" target="_blank" class="button">Open Capability URL</a></p>
+        `;
+        
+        // Insert result after the form
+        form.parentNode.insertBefore(resultElement, form.nextSibling);
+        
+        // Reset form
+        form.reset();
+        
+      } catch (error) {
+        console.error('Error creating router capability:', error);
+        
+        // Show error message
+        const resultElement = document.createElement('div');
+        resultElement.className = 'result error';
+        resultElement.innerHTML = `
+          <h3>Error</h3>
+          <p>${error.message}</p>
+        `;
+        
+        // Insert error after the form
+        form.parentNode.insertBefore(resultElement, form.nextSibling);
+      }
+    });
+  });
+</script>
+
+<style>
+  .router-form {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #eee;
+  }
+  
+  .form-group {
+    margin-bottom: 16px;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+  }
+  
+  input, textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+  
+  textarea {
+    font-size: 14px;
+  }
+  
+  .form-actions {
+    margin-top: 24px;
+  }
+  
+  .result {
+    margin-top: 20px;
+    padding: 16px;
+    border-radius: 8px;
+  }
+  
+  .result.success {
+    background-color: #e6ffe6;
+    border: 1px solid #99cc99;
+  }
+  
+  .result.error {
+    background-color: #ffe6e6;
+    border: 1px solid #cc9999;
+  }
+</style>

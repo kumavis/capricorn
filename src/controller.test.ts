@@ -270,3 +270,94 @@ test('validateCapabilityChain should fail for expired capabilities', async t => 
     { message: `Capability ${routerCap.id} has expired` }
   );
 });
+
+test('getRouterCapabilitiesForWriter should return only router capabilities for a writer', async t => {
+  // Create a fresh admin capability for this test
+  const adminCap = await controller.getAdminCapability();
+  if (!adminCap) {
+    t.fail('Admin capability should exist');
+    return;
+  }
+
+  // Create two writers
+  const writerCap1 = await controller.makeWriter({
+    label: 'writer-1',
+    parentCap: adminCap,
+  });
+  
+  const writerCap2 = await controller.makeWriter({
+    label: 'writer-2',
+    parentCap: adminCap,
+  });
+  
+  // Create 3 router capabilities under writer 1
+  const routerLabels1 = ['router-1a', 'router-1b', 'router-1c'];
+  const routers1 = [];
+  
+  for (const label of routerLabels1) {
+    const capOptions: CapabilityOptions = {
+      type: 'router',
+      label,
+      parentCap: writerCap1,
+    };
+    const router = await controller.makeRouter(capOptions, {
+      transformFn: 'req => req',
+      secrets: { key: 'test' },
+    });
+    routers1.push(router);
+  }
+  
+  // Create 2 router capabilities under writer 2
+  const routerLabels2 = ['router-2a', 'router-2b'];
+  const routers2 = [];
+  
+  for (const label of routerLabels2) {
+    const capOptions: CapabilityOptions = {
+      type: 'router',
+      label,
+      parentCap: writerCap2,
+    };
+    const router = await controller.makeRouter(capOptions, {
+      transformFn: 'req => req',
+      secrets: { key: 'test' },
+    });
+    routers2.push(router);
+  }
+  
+  // Test getRouterCapabilitiesForWriter with writer 1
+  const routersForWriter1 = await controller.getRouterCapabilitiesForWriter(writerCap1.id);
+  
+  // Verify we get exactly the 3 routers created for writer 1
+  t.is(routersForWriter1.length, 3, 'Should return exactly 3 router capabilities for writer 1');
+  
+  // Check that all returned capabilities are routers with the correct parent
+  for (const cap of routersForWriter1) {
+    t.is(cap.type, 'router', 'Should be a router capability');
+    t.is(cap.parentCapId, writerCap1.id, 'Should have writer 1 as parent');
+  }
+  
+  // Verify the returned router labels match what we created
+  const returnedLabels = routersForWriter1.map(cap => cap.label).sort();
+  t.deepEqual(returnedLabels, routerLabels1.sort(), 'Should return the correct router capabilities');
+  
+  // Test getRouterCapabilitiesForWriter with writer 2
+  const routersForWriter2 = await controller.getRouterCapabilitiesForWriter(writerCap2.id);
+  
+  // Verify we get exactly the 2 routers created for writer 2
+  t.is(routersForWriter2.length, 2, 'Should return exactly 2 router capabilities for writer 2');
+  
+  // Check that all returned capabilities are routers with the correct parent
+  for (const cap of routersForWriter2) {
+    t.is(cap.type, 'router', 'Should be a router capability');
+    t.is(cap.parentCapId, writerCap2.id, 'Should have writer 2 as parent');
+  }
+  
+  // Verify the returned router labels match what we created for writer 2
+  const returnedLabels2 = routersForWriter2.map(cap => cap.label).sort();
+  t.deepEqual(returnedLabels2, routerLabels2.sort(), 'Should return the correct router capabilities');
+  
+  // Test with a non-existent writer ID
+  const nonExistentId = '1'.repeat(32);
+  const routersForNonExistent = await controller.getRouterCapabilitiesForWriter(nonExistentId);
+  t.is(routersForNonExistent.length, 0, 'Should return empty array for non-existent writer');
+});

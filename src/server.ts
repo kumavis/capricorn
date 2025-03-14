@@ -11,7 +11,10 @@ const __dirname = import.meta.dirname;
 
 export function createServer(controller: CapabilityController): Application {
   const app = express();
-  app.engine('handlebars', engine());
+  app.engine('handlebars', engine({
+    defaultLayout: 'main',
+    partialsDir: path.join(__dirname, 'views/components')
+  }));
   app.set('view engine', 'handlebars');
   app.set('views', path.join(__dirname, 'views'));
   app.use(express.json());
@@ -88,13 +91,29 @@ export function createServer(controller: CapabilityController): Application {
       parentCap,
       ttl,
     }
-    const routerCap = await controller.makeRouter(capOptions, {
+    const router = await controller.makeRouter(capOptions, {
       pathTemplate,
       transformFn,
       secrets,
     });
+    const routerCap = await controller.getCapability(router.id);
+    if (!routerCap) {
+      res.status(404).json({ error: 'Router not found' });
+      return;
+    }
     const capabilityUrl = makeCapabilityUrl(req, routerCap.id);
-    res.json({ routerId: routerCap.id, capabilityUrl });
+    
+    // Only return non-sensitive information
+    res.json({ 
+      routerId: routerCap.id, 
+      capabilityUrl,
+      label: routerCap.label,
+      type: routerCap.type,
+      createdAt: routerCap.createdAt,
+      ttl: routerCap.ttl,
+      pathTemplate: router.pathTemplate,
+      // Note: We don't return the transformFn, secrets, parentCapId
+    });
   }
 
   async function makeWriter(parentCap: Capability, req: Request, res: Response) {
@@ -114,67 +133,87 @@ export function createServer(controller: CapabilityController): Application {
       ttl
     });
     const capabilityUrl = makeCapabilityUrl(req, writerCap.id);
-    res.json({ writerCapId: writerCap.id, capabilityUrl });
+    
+    // Only return non-sensitive information
+    res.json({ 
+      writerCapId: writerCap.id, 
+      capabilityUrl,
+      label: writerCap.label,
+      type: writerCap.type,
+      createdAt: writerCap.createdAt,
+      ttl: writerCap.ttl
+    });
+  }
+
+  function calculateTtlStatus(ttl: number | null, createdAt: Date, now: Date) {
+    if (ttl === null) return null;
+    
+    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+    const expirationTime = new Date(createdAt.getTime() + ttl * 1000);
+    const timeDiff = expirationTime.getTime() - now.getTime();
+    
+    if (timeDiff <= 0) {
+      return {
+        expired: true,
+        expirationTime,
+        message: 'Expired'
+      };
+    } else {
+      // Calculate time units for RelativeTimeFormat
+      const seconds = Math.floor(timeDiff / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+      
+      let timeRemaining;
+      if (days > 0) {
+        timeRemaining = rtf.format(days, 'day');
+      } else if (hours > 0) {
+        timeRemaining = rtf.format(hours, 'hour');
+      } else if (minutes > 0) {
+        timeRemaining = rtf.format(minutes, 'minute');
+      } else {
+        timeRemaining = rtf.format(seconds, 'second');
+      }
+      
+      return {
+        expired: false,
+        expirationTime,
+        message: `Expires ${timeRemaining}`,
+        timeRemaining
+      };
+    }
+  }
+  
+  function prepareCapabilityData(cap: Capability, req: Request, now: Date, viewType: 'admin' | 'writer' | 'router') {
+    const capData = cap.get({ plain: true });
+    const ttlStatus = calculateTtlStatus(capData.ttl, new Date(capData.createdAt), now);
+    
+    const result = {
+      ...capData,
+      url: makeCapabilityUrl(req, cap.id),
+      ttlStatus
+    };
+    
+    // Remove sensitive information for non-admin views
+    if (viewType !== 'admin') {
+      delete result.parentCapId;
+    }
+    
+    return result;
   }
 
   async function renderAdmin(req: Request, res: Response) {
     const capabilities = await controller.getAllCapabilities();
-
     // Get current time from database to ensure consistency
     const now = await controller.getCurrentTime();
-    const rtf = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
     
     // Prepare capabilities with URL and TTL information
-    const capabilitiesWithUrl = capabilities.map(cap => {
-      const capData = cap.get({ plain: true });
-      let ttlStatus = null;
-      
-      if (capData.ttl !== null) {
-        const createdAt = new Date(capData.createdAt);
-        const expirationTime = new Date(createdAt.getTime() + capData.ttl * 1000);
-        const timeDiff = expirationTime.getTime() - now.getTime();
-        
-        if (timeDiff <= 0) {
-          ttlStatus = {
-            expired: true,
-            expirationTime,
-            message: 'Expired'
-          };
-        } else {
-          // Calculate time units for RelativeTimeFormat
-          const seconds = Math.floor(timeDiff / 1000);
-          const minutes = Math.floor(seconds / 60);
-          const hours = Math.floor(minutes / 60);
-          const days = Math.floor(hours / 24);
-          
-          let timeRemaining;
-          if (days > 0) {
-            timeRemaining = rtf.format(days, 'day');
-          } else if (hours > 0) {
-            timeRemaining = rtf.format(hours, 'hour');
-          } else if (minutes > 0) {
-            timeRemaining = rtf.format(minutes, 'minute');
-          } else {
-            timeRemaining = rtf.format(seconds, 'second');
-          }
-          
-          ttlStatus = {
-            expired: false,
-            expirationTime,
-            message: `Expires ${timeRemaining}`,
-            timeRemaining
-          };
-        }
-      }
-      
-      return {
-        ...capData,
-        url: makeCapabilityUrl(req, cap.id),
-        ttlStatus
-      };
-    });
+    const capabilitiesWithData = capabilities.map(cap => 
+      prepareCapabilityData(cap, req, now, 'admin')
+    );
     
-    res.render('admin', { capabilities: capabilitiesWithUrl });
+    res.render('admin', { capabilities: capabilitiesWithData });
   }
 
   async function handleAdminRequest(adminCap: Capability, req: Request, res: Response) {
@@ -198,16 +237,48 @@ export function createServer(controller: CapabilityController): Application {
     res.status(405).json({ error: 'Unknown request for admin capability' });
   }
 
+  async function renderWriter(writerCap: Capability, req: Request, res: Response) {
+    // Get current time from database to ensure consistency
+    const now = await controller.getCurrentTime();
+    
+    // Get child router capabilities using the specialized method
+    const routerCaps = await controller.getRouterCapabilitiesForWriter(writerCap.id);
+    
+    // Prepare writer capability with URL and TTL information
+    const writerCapWithData = prepareCapabilityData(writerCap, req, now, 'writer');
+    
+    // Prepare router capabilities with URL and TTL information
+    const routerCapsWithData = routerCaps.map(cap => 
+      prepareCapabilityData(cap, req, now, 'router')
+    );
+    
+    res.render('writer', { 
+      capability: writerCapWithData, 
+      routerCaps: routerCapsWithData 
+    });
+  }
+
   async function handleWriterRequest(writerCap: Capability, req: Request, res: Response) {
     const remainingPath = getRemainingPath(req.params);
-    if (remainingPath === 'write' && req.method === 'POST') {
-      await makeWriter(writerCap, req, res);
-      return;
+    
+    if (req.method === 'GET') {
+      if (req.accepts('html')) {
+        await renderWriter(writerCap, req, res);
+        return;
+      }
     }
-    if (remainingPath === 'router' && req.method === 'POST') {
-      await makeRouter(writerCap, req, res);
-      return;
+
+    if (req.method === 'POST') {
+      if (remainingPath === 'write') {
+        await makeWriter(writerCap, req, res);
+        return;
+      }
+      if (remainingPath === 'router') {
+        await makeRouter(writerCap, req, res);
+        return;
+      }
     }
+    
     res.status(405).json({ error: 'Unknown request for writer capability' });
   }
 

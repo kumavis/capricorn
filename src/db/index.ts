@@ -9,10 +9,12 @@ interface DB {
   initDb(): Promise<void>;
   getCapability(id: string): Promise<Capability | null>;
   getAllCapabilities(type?: string): Promise<Capability[]>;
+  getCapabilitiesByParentAndType(parentId: string, type: string): Promise<Capability[]>;
   getRouter(id: string): Promise<RouterV1 | null>;
   getAdminCapability(): Promise<Capability | null>;
   makeCapability(options: CapabilityOptions): Promise<Capability>;
   close(): Promise<void>;
+  getCurrentTime(): Promise<Date>;
 }
 
 export class SequelizeDB implements DB {
@@ -65,6 +67,17 @@ export class SequelizeDB implements DB {
     const where = type ? { type } : {};
     const capabilities = await Capability.findAll({ 
       where,
+      order: [['createdAt', 'DESC']]
+    });
+    return capabilities;
+  }
+  
+  async getCapabilitiesByParentAndType(parentId: string, type: string) {
+    const capabilities = await Capability.findAll({
+      where: {
+        parentCapId: parentId,
+        type: type
+      },
       order: [['createdAt', 'DESC']]
     });
     return capabilities;

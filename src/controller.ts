@@ -31,6 +31,11 @@ export class CapabilityController {
     return await this.db.getAllCapabilities(type);
   }
 
+  async getRouterCapabilitiesForWriter(writerCapId: string): Promise<Capability[]> {
+    // Get all router capabilities that have this writer as their parent
+    return await this.db.getCapabilitiesByParentAndType(writerCapId, 'router');
+  }
+
   async getAdminCapability() {
     return await this.db.getAdminCapability();
   }

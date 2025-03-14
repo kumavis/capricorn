@@ -1,33 +1,42 @@
 <main>
-  <h1>Capricorn Admin</h1>
+  <h1>Writer Capability: {{capability.label}}</h1>
   
-  <div class="admin-forms">
-    <section class="create-section">
-      <h2>Create New Writer Capability</h2>
-      <p>Use this form to create a new writer capability that can create router capabilities.</p>
-      
-      {{> writer-form }}
-    </section>
+  <section class="capability-info">
+    <div class="capability-card type-writer">
+      <h3>Writer: {{capability.label}}</h3>
+      <div class="capability-details">
+        <p><strong>ID:</strong> {{capability.id}}</p>
+        <p><strong>Type:</strong> {{capability.type}}</p>
+        <p><strong>Created:</strong> {{capability.createdAt}}</p>
+        {{#if capability.ttl}}
+          <p><strong>TTL:</strong> {{capability.ttl}} seconds</p>
+          {{#if capability.ttlStatus}}
+            <p class="ttl-status {{#if capability.ttlStatus.expired}}expired{{else}}valid{{/if}}">
+              <strong>Status:</strong> {{capability.ttlStatus.message}}
+            </p>
+          {{/if}}
+        {{/if}}
+      </div>
+    </div>
+  </section>
+
+  <section class="create-router">
+    <h2>Create New Router Capability</h2>
+    <p>Use this form to create a new router capability that will transform incoming requests.</p>
     
-    <section class="create-section">
-      <h2>Create New Router Capability</h2>
-      <p>Use this form to create a new router capability that will transform incoming requests.</p>
-      
-      {{> router-form }}
-    </section>
-  </div>
+    {{> router-form }}
+  </section>
   
-  <section>
-    <h2>All Capabilities</h2>
+  <section class="existing-routes">
+    <h2>Existing Router Capabilities</h2>
     
-    {{#if capabilities.length}}
+    {{#if routerCaps.length}}
       <div class="capabilities">
-        {{#each capabilities}}
-          <div class="capability-card type-{{this.type}}">
-            <h3>{{this.type}}: {{this.label}}</h3>
+        {{#each routerCaps}}
+          <div class="capability-card type-router">
+            <h3>Router: {{this.label}}</h3>
             <div class="capability-details">
               <p><strong>ID:</strong> {{this.id}}</p>
-              <p><strong>Type:</strong> {{this.type}}</p>
               <p><strong>Created:</strong> {{this.createdAt}}</p>
               {{#if this.ttl}}
                 <p><strong>TTL:</strong> {{this.ttl}} seconds</p>
@@ -37,9 +46,6 @@
                   </p>
                 {{/if}}
               {{/if}}
-              {{#if this.parentCapId}}
-                <p><strong>Parent:</strong> {{this.parentCapId}}</p>
-              {{/if}}
             </div>
             <div class="capability-actions">
               <a href="{{this.url}}" target="_blank" class="button">Open Capability URL</a>
@@ -48,31 +54,13 @@
         {{/each}}
       </div>
     {{else}}
-      <p>No capabilities have been created yet.</p>
+      <p>No router capabilities have been created with this writer yet.</p>
     {{/if}}
   </section>
   
   <style>
-    section {
+    .capability-info {
       margin-bottom: 40px;
-    }
-    
-    .admin-forms {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-      gap: 30px;
-      margin-bottom: 40px;
-    }
-    
-    .create-section {
-      margin-bottom: 20px;
-    }
-    
-    .capabilities {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 20px;
-      margin-top: 20px;
     }
     
     .capability-card {
@@ -80,19 +68,12 @@
       border-radius: 8px;
       padding: 16px;
       background-color: #f9f9f9;
+      max-width: 600px;
+      margin-bottom: 20px;
     }
     
     .capability-details {
       margin: 8px 0;
-    }
-    
-    .capability-actions {
-      margin-top: 16px;
-    }
-    
-    .type-admin {
-      border-color: #cc0000;
-      border-width: 2px;
     }
     
     .type-writer {
@@ -127,10 +108,20 @@
       background-color: #0055aa;
     }
     
-    @media (max-width: 1000px) {
-      .admin-forms {
-        grid-template-columns: 1fr;
-      }
+    .capabilities {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+      margin-top: 20px;
+    }
+    
+    section {
+      margin-bottom: 40px;
+    }
+    
+    h2 {
+      margin-top: 0;
+      margin-bottom: 16px;
     }
   </style>
 </main>
